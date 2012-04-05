@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+
+<!--
+  Google HTML5 slide template
+
+  Authors: Luke Mahé (code)
+           Marcin Wichary (code and design)
+
+           Dominic Mazzoni (browser compatibility)
+           Charles Chen (ChromeVox support)
+
+  URL: http://code.google.com/p/html5slides/
+-->
+
+<html>
+  <head>
+    <title>express.js tips and tricks</title>
+
+    <meta charset='utf-8'>
+    <script src='slides.js'></script>
+
+    <style>
+    hr {
+      border: 0px;
+      border-top: 1px solid #ddd;
+    }
+    </style>
+  </head>
+
+  <body style='display: none'>
+
+    <section class='slides layout-regular template-default'>
+
+      <!-- Your slides (<article>s) go here. Delete or comment out the
+           slides below. -->
+      <article>
+        <h1>
+          express.js tips and tricks
+        </h1>
+        <p>
+          Roman Shtylman
+          <br>
+          @defunctzombie
+        </p>
+      </article>
+
+      <article>
+        <h3>why do you care?</h3>
+        <p>
+          Doing it <strong>wrong</strong> will be much more painful and make you hate life.
+        </p>
+        <p>
+          Express is minimal and yet useful.
+        </p>
+        <p>
+          Middleware is wonderful.
+        </p>
+        <p>
+          Examples will use express.js 2.x<br/>
+          <small>3.x will be released soon!</small>
+        </p>
+        <pre class="lang-js">
+var express = require('express');
+
+var app = express();
+
+app.get('/', function(req, res) {
+      res.send('hi');
+});</pre>
+      </article>
+
+      <article>
+        <h3>error handling</h3>
+        <p>
+          If you do one thing, do this.
+        </p>
+        <p>
+          Error handling middleware is your friend.<br/>
+          <small>put this last, avoid builtin</small>
+        </p>
+        <pre class="lang-js">app.use(function(err, req, res, next) { ... }</pre>
+        <p>
+          Always use the <em>next</em> parameter.
+        </p>
+        <pre class="lang-js">app.use(function(req, res, next) { ... }</pre>
+        <p>
+          Return proper error codes.
+        </p>
+        <p>
+          Stop using <code>Error</code> for everything!
+        </p>
+        <p>
+          <small>see: error_handler.js</small>
+        </p>
+      </article>
+
+      <article class="smaller">
+        <h3>locals</h3>
+        <pre class="lang-js">
+app.get('/user', function(...) {
+  res.render('profile', { user: req.user });
+});
+
+app.get('/user/settings', function(...) {
+  res.render('settings', { user: req.user });
+});
+
+// ... and so on</pre>
+        <p>
+          No need to set before every render. Middleware can do it!
+        </p>
+        <pre class="lang-js">
+app.use('/user', function(req, res, next) {
+  // some code that loads user
+  res.local('user', req.user);
+  next();
+});</pre>
+        <p>
+          Express 3.x has a new async loader for locals<br/>
+          <pre class="lang-js">app.locals.use(function(req, res, next) { }); </pre>
+        </p>
+      </article>
+
+      <article class="smaller">
+        <h3>more error handling</h3>
+        <p>
+          Using locals, session, and middleware, we can pass errors between pages.<br/>
+          <small>usefull for form input</small>
+        </p>
+
+        <pre class="lang-js">
+app.use(function(req, res, next) {
+  // error variable populated from previous request
+  res.local('error', req.session.error);
+  delete req.session.error; //depends on your session store
+});
+
+app.use(function(err, req, res, next) {
+  // if we have a bad request and a POST and accepts json
+  if (err instanceof BadRequest && ...) {
+    req.session.error = err.message; // store error for later
+
+    // send back to originating page
+    return res.redirect(req.referer);
+  }
+});
+
+app.post('/magic', function(req, res, next) {
+  // check some stuffs
+  return next(new BadRequest('magic requires karma'));
+});
+        </pre>
+
+        <p>
+          <small>see: form_errors.js</small>
+        </p>
+      </article>
+
+      <article>
+        <h3>static resources</h3>
+        <p>
+          Use the favicon middleware
+        </p>
+        <p>
+          If you use the static server, use the static cache too.
+        </p>
+        <pre class="lang-js">
+app.use(express.staticCache());
+app.use(express.static({...});</pre>
+        <p>
+          Use an asset manager to group assets.
+        </p>
+        <p>
+          Fingerprint static assets and use a long cache time.<br/>
+          <small>/static/548a05af48ef6545db2fd999b12ca937/css/images/icons.png</small><br/>
+          <small>/static/559ecb5bf7eef51fb851091e1c97247d/css/workspace.css</small>
+        </p>
+        <p>
+          Use template helpers to provide the fingerprinting.
+        </p>
+        <hr/>
+        <p>
+          All of the above is done with middleware.
+        </p>
+        <p><small>see: static_resources.js</small></p>
+      </article>
+
+      <article>
+        <h3>routing</h3>
+        <p>
+          Middleware placement matters! Executed in order.<br/>
+          <small>important for sessions, cookies, etc...</small>
+        </p>
+        <p>
+          Use param pre-conditions to load resources
+        </p>
+        <pre class="lang-js">
+app.get('/listings/:listing_id', function(...));
+
+app.param('listing_id', function(req, req, next, id) {
+  // id is the value of :listing_id from our route
+  // load what we want here
+  req.listing = { ... };
+  next();
+});
+</pre>
+
+        <p>
+          Multiple routers (starting with Express 3.x)<br/>
+          <code class="lang-js">app.use(app.router);</code>
+        </p>
+        <small>see: routing.js</small>
+      </article>
+
+      <article>
+        <h3>cookie sessions</h3>
+        <p>
+          nom nom nom
+        </p>
+        <p>
+          Why bother with more io if you have little session data?
+        </p>
+        <p>
+          Be frugal in deciding what to store. (cookie size limits)<br/>
+          <small>user_id is a start (uid for byte savers)</small>
+        </p>
+        <p>
+          Encrypted cookie session variation.<br/>
+          <small>The default cookieSession from connect is unencrypted (signed to prevent tamper). Encryption prevents tamper and reading contents.</small><br/>
+          <small>see: https://gist.github.com/1983227</small>
+        </p>
+
+        <p>
+          <small>see: cookie.js</small>
+        </p>
+      </article>
+
+      <article>
+        <h3>csrf</h3>
+        <p>
+          Does it matter? This is not a philisophy class.
+        </p>
+        <p>
+          Middleware and res.local to the rescue!<br/>
+          <small>They provide 'helpers' for templates.</small>
+        </p>
+        <pre class="lang-js">
+app.use(function(req, res, next) {
+  var token = req.session._csrf;
+  res.local('csrf_token', token);
+  res.local('csrf_input_field',
+    '&lt;input type="hidden" name="_csrf" value="' + token + '"/&gt;');
+  next();
+
+  // res.locals({ ... });
+});
+        </pre>
+
+      </article>
+
+      <article>
+        <h3>configuration</h3>
+        <p>
+          app.configure is deprecated
+        </p>
+        <p>
+          If statements work just fine :)
+        </p>
+        <p>
+          Use different <em>secrets</em> in dev vs prod.
+        </p>
+        <p>
+          Be as consistent as possible (minus minification).
+        </p>
+      </article>
+
+      <article>
+        <h3>questions/discussion</h3>
+
+        <p>
+          <a href="https://github.com/visionmedia/express/wiki/New-features-in-3.x">https://github.com/visionmedia/express/wiki/New-features-in-3.x</a>
+        </p>
+
+        <p>
+          <a href="https://github.com/visionmedia/express/tree/master/examples">express js examples in repo</p>
+        </p>
+      </article>
+
+    </section>
+
+  </body>
+</html>
