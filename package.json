@@ -1,0 +1,9 @@
+{
+    "name": "expressjs-tips-tricks",
+    "version": "0.0.0",
+    "dependencies": {
+        "express": "2.5.9",
+        "logger": "git://github.com/shtylman/node-logger.git",
+        "hbs": "git://github.com/shtylman/hbs.git"
+    }
+}
